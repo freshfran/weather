@@ -15,6 +15,9 @@
   var buttonAdd = $("[data-button='add']");
   var buttonLoad = $("[data-saved-cities]");
   var buttonClear = $("[data-button-clear]"); //Incluido - Francisco Palma
+
+  $(buttonLoad).prop("disabled",true);       //Incluido - Francisco Palma: Control de errores, por defecto, Cargar y Borrar están disabled 
+  $(buttonClear).prop("disabled",true);
   
   var cities = [];
   var cityWeather = {};
@@ -35,9 +38,16 @@
   //buttonLoad.on("click", loadSavedCities);  //Comentado - Francisco Palma: Anterior llamada a 'loadSavedCities'
   buttonLoad.on("click", function() {         //Incluido - Francisco Palma
     $(this).prop("disabled",true);            //De esta forma, solo podemos mostrar lista ciudades 1 vez, tras insertar nueva ciudad
+    clearCard();                              //Incluida TEST!!!!!
+    //clearCityWeather(cityWeather);          //Incluida TEST!!!!!
     loadSavedCities(event);
   });
-  buttonClear.on("click", clearCities);       //Incluido - Francisco Palma
+  //buttonClear.on("click", clearCities);     //Comentado - Francisco Palma
+  buttonClear.on("click", function() {        //Incluido - Francisco Palma
+    $(this).prop("disabled",true);
+    clearCities(event);
+  });
+
 
   if(navigator.geolocation) {
     //debugger;                               //Comentado - Francisco Palma
@@ -96,29 +106,23 @@
     clone.querySelector("[data-temp='min']").innerHTML = cityWeather.temp_min.toFixed(1);
     clone.querySelector("[data-temp='current']").innerHTML = cityWeather.temp.toFixed(1);
 
-    /*Aclaración - Francisco Palma: Inicialmente, antes de declarar aparte las variables, teníamos esto Con Jquery
-    //$(".loader").hide();      Seleccionamos con JQuery la clase 'loader', y le decimos que se esconda 
-    //$("body").append(clone);  Decimos que añada el contenido de clone sobre el DOM
-                                
-    Como buena práctica, para no estar cargando cada vez las variables, declaramos como variable la carga de JQuery,
-    de esta forma: $body = $("body"). De esta forma, cuando estemos haciendo el 'append', solo estaremos cargando la variable
-    ya declarada.
-
-    Hacemos lo mismo con $loader.
-
-    Otra forma de hacerlo es:
-    $( $loader).hide();
-    $( $body).append(clone);
-    */
-    
+    /*Aclaración - Francisco Palma: Comentario 1*/    
     $loader.hide();
     $body.append(clone);
   }
 
   function addNewCity(event) {
     event.preventDefault();
-    $(buttonLoad).prop("disabled",false);       //Incluido - Francisco Palma: Cuando volvamos a incluir ciudad, activamos buttonLoad
+                                                //Incluido - Francisco Palma: Control de errores para el caso de data-input="cityAdd" vacio
+    if (nombreNuevaCiudad.val() != "") {                                     
+      $(buttonLoad).prop("disabled",false);     //Incluido - Francisco Palma: Cuando volvamos a incluir ciudad, activamos buttonLoad
+      $(buttonClear).prop("disabled",false);    //Incluido - Francisco Palma: Cuando volvamos a incluir ciudad, activamos buttonClear
     $.getJSON(API_WEATHER_URL + "q=" + nombreNuevaCiudad.val(), getWeatherCity);
+    }
+    else
+    {
+      alert("Debes incluir una nueva ciudad");
+    }
   }
 
   function getWeatherCity(data) {
@@ -134,17 +138,6 @@
       cityWeather.temp_min = data.main.temp_min - 273.15;
       cityWeather.temp_max = data.main.temp_max - 273.15;
 
-      //renderTemplate(cityWeather, response.data.time_zone[0].localtime); //FRAN
-      //FRAN: Para que no se pinten siempre en el templaate las ciudades.
-
-      //FRAN: Crearemos una función para comparar por nombre las ciudades que ya se han insertado en el array
-      // for (var i in cities){
-      //   if (cities[i] === cityWeather.zone){
-      //     alert ("Esta ciudad ya estaba");
-      //   }
-      //   alert(cities[i]);
-      // } 
-
       var flag = 0;                               //Incluido - Francisco Palma: Con este módulo se controla que en el array 'cities[]'
       for (i = 0; i < cities.length; i++){        //no se estén incluyendo ciudades repetidas.
         if (cities[i].zone === cityWeather.zone){
@@ -155,11 +148,6 @@
       if (flag == 0) {
         cities.push(cityWeather);
       }
-      
-      //FRAN: Este bucle funciona, con él, recorremos el vector de objetos 'cities', y obtenemos el nombre de cada posición por medio del atributo 'zone'.
-      // for (i = 0; i < cities.length; i++){
-      //   alert(cities[i].zone);
-      // }
       localStorage.setItem("cities", JSON.stringify(cities));
     });
   }
@@ -171,11 +159,8 @@
 
     function renderCities(cities){
       //alert("Entramos en renderCities");
-      if (cities.length == 0){          //Modificado - Francisco Palma: Salvamos el caso de que cities venga vacio en el forEach
-        alert("Las ciudades han sido borradas: No es posible mostrarlas.");
-      }
-      else
-      {
+
+      if (cities != null){                  //Modificado - Francisco Palma: Salvamos el caso de que cities venga vacio en el forEach
         cities.forEach(function(city) {  
           //alert("Dentro de forEach()");
           //alert(city.zone);
@@ -184,9 +169,7 @@
             //alert(a[m]);              
             acum++;   
             renderTemplate(city);  
-          }
-          //acum++;                     //Para poder controlar repeticiones, mínimo debemos haber incluido 1 item, por eso condicionamos
-                                        //a partir de la 2da
+          }          
           else
           {
             a[m] = city.zone;
@@ -201,49 +184,63 @@
           m++;
         });
       }
+      else
+      {
+        alert("Las ciudades han sido borradas: No es posible mostrarlas.");        
+      }
     };
     //Código ya hecho antes, cogemos el string de LS, lo parseamos a JSON, y lo ponemos en array cities[]
     var cities = JSON.parse( localStorage.getItem("cities") );  
-    for (var i in cities){
-      //alert(cities[i].zone);
-    }
-    renderCities(cities); //Llamamos a función renderCities
+    // for (var i in cities){
+    //   alert(cities[i].zone);
+    // }
+    renderCities(cities);                     
   }
 
   function clearCities(event) {                 //Incluido - Francisco Palma: Con esta función, limpiamos el localstorage
     event.preventDefault();                     //por medio de su clave. Dejo comentadas otras formas de hacerlo, y la 
     localStorage.removeItem('cities');          //comprobación de que la localstorage queda vacia.
-    clearTemplate();
-    //localStorage.clear(cities);               
-    //return localStorage.cities = null;
-    //alert(localStorage.length);
+    cities.length = 0;                          //Limpiamos array 'cities', de forma que cuando hayamos limpiado la pantalla, 
+                                                //no estemos acumulando resultados anteriores, que mostraríamos en la nueva lista de ciudades
+
+    $(".card").remove();                        //Con esta función, limpiamos clase 'card'
+    navigator.geolocation.getCurrentPosition(getCoords, errorFound);  
+                                                //Cargamos nuevamente posición geolocalizada por browser, restablecemos situación inicio
   }
 
-  function clearTemplate(){
+  function clearCard(){
+    $(".card").remove();
+  } 
 
-    //$("#template--city").remove(); con JQUERY
-    $("#template--city").remove(".card");
-
-    //alert(id);
-    // var list = document.getElementsByClassName("#template--city");
-    // for(var i = list.length - 1; 0 <= i; i--)
-    //   if(list[i] && list[i].parentElement)
-    //   list[i].parentElement.removeChild(list[i]);
-
-
-    // document.getElementById(id).innerHTML ='';
-
-    //     var element = document.getElementById(id);
-    // element.outerHTML = "";
-    // delete element;
-    //var element = document.getElementById(id);
-    //element.parentNode.removeChild(".card");
-    //document.querySelector(id).remove();
-    // var t = document.querySelector(id);
-    // t.
-    // return document.importNode(t.content, false);
-    //$("#template--city").clear();
-  }
-
+  function clearVectorCities(cities){         //Incluido - Francisco Palma 26/11/15: Limpiamos array 'cities', de forma que cuando hayamos
+    cities.length = 0;                        //limpiado la pantalla, no estemos acumulando resultados anteriores, que mostraríamos en la 
+  }                                           //nueva lista de ciudades.
 
 })();
+
+/*
+Comentario 1
+Inicialmente, antes de declarar aparte las variables, teníamos esto Con Jquery
+    //$(".loader").hide();      Seleccionamos con JQuery la clase 'loader', y le decimos que se esconda 
+    //$("body").append(clone);  Decimos que añada el contenido de clone sobre el DOM
+                                
+    Como buena práctica, para no estar cargando cada vez las variables, declaramos como variable la carga de JQuery,
+    de esta forma: $body = $("body"). De esta forma, cuando estemos haciendo el 'append', solo estaremos cargando la variable
+    ya declarada.
+
+    Hacemos lo mismo con $loader.
+
+    Otra forma de hacerlo es:
+    $( $loader).hide();
+    $( $body).append(clone);
+
+
+Comentario 2
+Intentos fallidos de limpiar el contenido del ID template--city
+    //$("#template--city").remove(); con JQUERY
+    //$("#template--city").remove(".card");
+    //$("#template--city").clearQueue();
+    //$(".card").empty(); CASI
+    //$(".card").clearQueue();
+
+*/
